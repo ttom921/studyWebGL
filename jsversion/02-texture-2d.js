@@ -1,19 +1,28 @@
-import { createShader, createProgram } from './lib/utils.js'
+import { createShader, createProgram, loadImage } from './lib/utils.js';
+
 const vertexShaderSource = `
 attribute vec2 a_position;
-uniform vec2 u_resolution;
+attribute vec2 a_texcoord;
 
-void main(){
+uniform vec2 u_resolution;
+varying vec2 v_texcoord;
+void main() {
     gl_Position = vec4(
-        a_position / u_resolution * vec2(2,-1) + vec2(-1,1),
+        a_position / u_resolution * vec2(2,-2) + vec2(-1,1),
         0,1
     );
+    v_texcoord=a_texcoord;
 }
 `;
+
 const fragmentShaderSource = `
 precision mediump float;
-void main(){
-    gl_FragColor = vec4(0.5,0.5,0.5,1);
+
+varying vec2 v_texcoord;
+uniform sampler2D u_texture;
+
+void main() {
+    gl_FragColor = texture2D(u_texture,v_texcoord);
 }
 `;
 
@@ -30,7 +39,24 @@ async function main() {
     const program = createProgram(gl, vertexShader, fragmentShader);
 
     const positionAttributeLocation = gl.getAttribLocation(program, 'a_position');
+    const texcoordAttributeLocation = gl.getAttribLocation(program, 'a_texcoord');
     const resolutionUniformLocation = gl.getUniformLocation(program, 'u_resolution');
+    const textureUniformLocation = gl.getUniformLocation(program, 'u_texture');
+
+    //image process
+    const image = await loadImage('https://i.imgur.com/ISdY40yh.jpg');
+    const texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(
+        gl.TEXTURE_2D,
+        0,//level
+        gl.RGB,//internalFormat
+        gl.RGB,//format
+        gl.UNSIGNED_BYTE,//type
+        image,//data
+    );
+    gl.generateMipmap(gl.TEXTURE_2D);
+
 
     //a_position
     const positionBuffer = gl.createBuffer();
@@ -59,8 +85,42 @@ async function main() {
         gl.STATIC_DRAW,
     );
 
+    // a_texcoord
+    const texcoordBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, texcoordBuffer);
+
+    gl.enableVertexAttribArray(texcoordAttributeLocation);
+    gl.vertexAttribPointer(
+        texcoordAttributeLocation,
+        2,//size
+        gl.FLOAT,//type
+        false,// normalize
+        0,//stride
+        0,//offset
+    );
+    gl.bufferData(
+        gl.ARRAY_BUFFER,
+        new Float32Array([
+            0, 0,//A
+            1, 0,//B
+            1, 1,//C
+
+            0, 0,//D
+            1, 1,//E
+            0, 1//F
+        ]),
+        gl.STATIC_DRAW,
+    );
+
     gl.useProgram(program);
     gl.uniform2f(resolutionUniformLocation, canvas.width, canvas.height);
+    // texture uniform
+    const textureUnit = 0;
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.activeTexture(gl.TEXTURE0 + textureUnit);
+    gl.uniform1i(textureUniformLocation, textureUnit);
+
+
     gl.clearColor(108 / 255, 225 / 255, 153 / 255, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
