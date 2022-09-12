@@ -42,47 +42,32 @@ async function setup() {
         texture: gl.getUniformLocation(program, 'u_texture'),
     };
     //image process
-    //const image = await loadImage('https://i.imgur.com/ISdY40yh.jpg');
-    const texture = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, texture);
+    //建立三張texture
+    const textures = await Promise.all([
+        'https://i.imgur.com/EDLB71ih.jpg',
+        'https://i.imgur.com/KT2nqZNh.jpg',
+        'https://i.imgur.com/diRWq5ph.jpg',
+    ].map(async url => {
+        const image = await loadImage(url);
+        const texture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(
+            gl.TEXTURE_2D,
+            0,//level
+            gl.RGB,//internalFormat
+            gl.RGB,//format
+            gl.UNSIGNED_BYTE,//type
+            image,//data
+        );
+        gl.generateMipmap(gl.TEXTURE_2D);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        return texture;
+    }));
 
-    // gl.texImage2D(
-    //     gl.TEXTURE_2D,
-    //     0,//level
-    //     gl.RGB,//internalFormat
-    //     gl.RGB,//format
-    //     gl.UNSIGNED_BYTE,//type
-    //     image,//data
-    // );
-
-
-
-    const whiteColor = [255, 255, 255, 255];
-    const blackColor = [0, 0, 0, 255];
-    gl.texImage2D(
-        gl.TEXTURE_2D,
-        0,//level
-        gl.RGBA,//internalFormat
-        2,//width
-        2,//height
-        0,//border
-        gl.RGBA,//format
-        gl.UNSIGNED_BYTE,//type
-        new Uint8Array([
-            ...whiteColor, ...blackColor,
-            ...blackColor, ...whiteColor,
-        ]),
-    );
-    //gl.generateMipmap(gl.TEXTURE_2D);
-
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
-
-    const buffers = {};
 
     //a_position
+    const buffers = {};
     buffers.position = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
 
@@ -126,26 +111,30 @@ async function setup() {
         gl.ARRAY_BUFFER,
         new Float32Array([
             0, 0,//A
-            8, 0,//B
-            8, 8,//C
+            1, 0,//B
+            1, 1,//C
 
             0, 0,//D
-            8, 8,//E
-            0, 8//F
+            1, 1,//E
+            0, 1//F
         ]),
         gl.STATIC_DRAW,
     );
     return {
         gl,
         program, attributes, uniforms,
-        buffers, texture,
+        buffers, textures,
+        state: {
+            texture: 0,
+        }
     }
 }
 async function render(app) {
     const {
         gl,
         program, uniforms,
-        texture,
+        textures,
+        state,
     } = app;
     gl.canvas.width = gl.canvas.clientWidth;
     gl.canvas.height = gl.canvas.clientHeight;
@@ -153,11 +142,12 @@ async function render(app) {
     gl.viewport(0, 0, canvas.width, canvas.height);
 
     gl.useProgram(program);
+
     gl.uniform2f(uniforms.resolution, gl.canvas.width, gl.canvas.height);
 
     // texture uniform
     const textureUnit = 0;
-    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.bindTexture(gl.TEXTURE_2D, textures[state.texture]);
     gl.activeTexture(gl.TEXTURE0 + textureUnit);
     gl.uniform1i(uniforms.texture, textureUnit);
     //
