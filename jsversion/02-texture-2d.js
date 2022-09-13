@@ -1,19 +1,18 @@
 import { createShader, createProgram, loadImage } from './lib/utils.js';
+import { matrix3 } from './lib/matrix.js';
+
 
 const vertexShaderSource = `
 attribute vec2 a_position;
 attribute vec2 a_texcoord;
 
-uniform vec2 u_resolution;
-uniform vec2 u_offset;
+uniform mat3 u_matirx;
 
 varying vec2 v_texcoord;
+
 void main() {
-    vec2 position= a_position + u_offset;
-    gl_Position = vec4(
-        position / u_resolution * vec2(2,-2) + vec2(-1,1),
-        0,1
-    );
+    vec3 position = u_matirx * vec3(a_position.xy, 1);
+    gl_Position = vec4(position.xy, 0, 1);
     v_texcoord=a_texcoord;
 }
 `;
@@ -41,9 +40,8 @@ async function setup() {
         texcoord: gl.getAttribLocation(program, 'a_texcoord'),
     };
     const uniforms = {
-        resolution: gl.getUniformLocation(program, 'u_resolution'),
+        matirx: gl.getUniformLocation(program, 'u_matirx'),
         texture: gl.getUniformLocation(program, 'u_texture'),
-        offset: gl.getUniformLocation(program, 'u_offset'),
     };
     //image process
     //建立三張texture
@@ -152,8 +150,14 @@ async function render(app) {
 
     gl.useProgram(program);
 
-    gl.uniform2f(uniforms.resolution, gl.canvas.width, gl.canvas.height);
-    gl.uniform2fv(uniforms.offset, state.offset);
+    const viewMatrix = matrix3.projection(gl.canvas.width, gl.canvas.height);
+    const worldMatrix = matrix3.translate(...state.offset);
+
+    gl.uniformMatrix3fv(
+        uniforms.matirx,
+        false,
+        matrix3.multiply(viewMatrix, worldMatrix),
+    );
 
     // texture uniform
     const textureUnit = 0;
