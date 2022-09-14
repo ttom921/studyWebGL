@@ -85,13 +85,13 @@ async function setup() {
     gl.bufferData(
         gl.ARRAY_BUFFER,
         new Float32Array([
-            0, 0,//A
-            150, 0,//B
-            150, 150,//C
+            -75, -75,//A
+            75, -75,//B
+            75, 75,//C
 
-            0, 0, //D
-            150, 150,//E
-            0, 150,//F
+            -75, -75, //D
+            75, 75,//E
+            -75, 75,//F
         ]),
         gl.STATIC_DRAW,
     );
@@ -132,6 +132,9 @@ async function setup() {
             texture: 0,
             offset: [0, 0],
             direction: [Math.cos(directionDeg), Math.sin(directionDeg)],
+            translate: [0, 0],
+            scale: 1,
+            rotation: 0,
             speed: 0.08,
         },
         time: 0,
@@ -151,7 +154,13 @@ async function render(app) {
     gl.useProgram(program);
 
     const viewMatrix = matrix3.projection(gl.canvas.width, gl.canvas.height);
-    const worldMatrix = matrix3.translate(...state.offset);
+    const worldMatrix = matrix3.multiply(
+        matrix3.identity(),
+        matrix3.translate(...state.offset),
+        matrix3.rotate(state.rotation),
+        matrix3.scale(state.scale, state.scale),
+        matrix3.translate(...state.translate)
+    );
 
     gl.uniformMatrix3fv(
         uniforms.matirx,
@@ -177,17 +186,17 @@ function startLoop(app, now = 0) {
     state.offset = state.offset.map(
         (v, i) => v + state.direction[i] * timeDiff + state.speed
     );
-    if (state.offset[0] + 150 > gl.canvas.width) {
+    if (state.offset[0] > gl.canvas.width) {
         state.direction[0] *= -1;
-        state.offset[0] = gl.canvas.width = 150;
+        state.offset[0] = gl.canvas.width;
     } else if (state.offset[0] < 0) {
         state.direction[0] *= -1;
         state.offset[0] = 0;
     }
 
-    if (state.offset[1] + 150 > gl.canvas.height) {
+    if (state.offset[1] > gl.canvas.height) {
         state.direction[1] *= -1;
-        state.offset[1] = gl.canvas.height - 150;
+        state.offset[1] = gl.canvas.height;
     } else if (state.offset[1] < 0) {
         state.direction[1] *= -1;
         state.offset[1] = 0
@@ -205,7 +214,11 @@ async function main() {
         const fromData = new FormData(controlsForm);
         app.state.texture = parseInt(fromData.get('texture'));
         app.state.speed = parseFloat(fromData.get('speed'));
-        //console.log(`speed=`, app.state.speed);
+        app.state.translate[0] = parseInt(fromData.get('translate-x'));
+        app.state.translate[1] = parseInt(fromData.get('translate-y'));
+        app.state.scale = parseFloat(fromData.get('scale'));
+        app.state.rotation = parseFloat(fromData.get('rotation')) * Math.PI / 180;
+
     });
     startLoop(app);
 }
